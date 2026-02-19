@@ -5,50 +5,42 @@ import { schwabClient } from '@/lib/schwab';
 
 export async function GET(req: NextRequest) {
     try {
-        await updateTrackedOptions(async (ticker, optionSymbol) => {
+        await updateTrackedOptions(async (option) => {
             let premium = 0;
             let stockPrice = 0;
+
+            const ticker = option.ticker.trim();
+            const optionSymbol = option.id.replace(/\s+/g, '');
 
             // 1. Get Stock Price
             const quote = await publicClient.getQuote(ticker);
             if (quote) stockPrice = quote.price;
 
             // 2. Get Option Premium
-            // We use the same priority as in options.ts: Schwab -> Public
             try {
+                // Tier 1: Schwab Professional (Preferred for specific contract quotes)
                 if (schwabClient.isConfigured()) {
-                    const greeks = await schwabClient.getGreeks(optionSymbol);
-                    if (greeks) {
-                        // If we can't get bid/ask easily, we'll try to find it in the chain or use last
-                        // For simplicity in update, we'll try to fetch the specific option quote if available
-                        // But Schwab getGreeks doesn't give price. 
-                        // Let's use publicClient.getOptionChain as a reliable way to get current mid price
+                    const greeks = await schwabClient.getGreeks(option.id.trim());
+                    if (greeks && greeks.lastPrice > 0) {
+                        premium = greeks.lastPrice;
                     }
                 }
 
-                // Fallback to Public.com chain to get the mid price
-                const expiryMatch = optionSymbol.match(/[A-Z]+(\d{6})[CP]/);
-                if (expiryMatch) {
-                    const rawExp = expiryMatch[1];
-                    const year = '20' + rawExp.substring(0, 2);
-                    const month = rawExp.substring(2, 4);
-                    const day = rawExp.substring(4, 6);
-                    const expiry = `${year}-${month}-${day}`;
-
-                    const chain = await publicClient.getOptionChain(ticker, expiry);
-                    if (chain && chain.options[expiry]) {
-                        for (const strike in chain.options[expiry]) {
-                            const data = chain.options[expiry][strike];
-                            const opt = data.call?.symbol === optionSymbol ? data.call : (data.put?.symbol === optionSymbol ? data.put : null);
+                // Tier 2: Public.com Chain Fallback
+                if (premium === 0) {
+                    const chain = await publicClient.getOptionChain(ticker, option.expiry);
+                    if (chain && chain.options[option.expiry]) {
+                        const strikeData = chain.options[option.expiry][option.strike];
+                        if (strikeData) {
+                            const opt = option.type === 'CALL' ? strikeData.call : strikeData.put;
                             if (opt) {
                                 premium = (opt.bid + opt.ask) / 2 || opt.last;
-                                break;
                             }
                         }
                     }
                 }
             } catch (e) {
-                console.error(`Error fetching latest premium for ${optionSymbol}:`, e);
+                console.error(`Error fetching latest premium for ${option.id}:`, e);
             }
 
             if (premium > 0 && stockPrice > 0) {

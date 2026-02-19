@@ -82,7 +82,7 @@ export function trackOption(option: OptionRecommendation, companyName: string, u
     return newTracked;
 }
 
-export async function updateTrackedOptions(getLatestData: (ticker: string, symbol: string) => Promise<{ premium: number, stockPrice: number } | null>) {
+export async function updateTrackedOptions(getLatestData: (option: TrackedOption) => Promise<{ premium: number, stockPrice: number } | null>) {
     const tracked = getTrackedOptions();
     const today = new Date().toISOString().split('T')[0];
     let hasChanges = false;
@@ -97,18 +97,41 @@ export async function updateTrackedOptions(getLatestData: (ticker: string, symbo
             continue;
         }
 
-        // Avoid duplicate updates for the same day
-        if (option.history.some(h => h.date === today)) continue;
-
         try {
-            const latest = await getLatestData(option.ticker, option.id);
+            const latest = await getLatestData(option);
             if (latest) {
-                option.history.push({
-                    date: today,
-                    optionPremium: latest.premium,
-                    stockPrice: latest.stockPrice
-                });
-                hasChanges = true;
+                const todayEntryIndex = option.history.findIndex(h => h.date === today);
+
+                // If it's the day of entry, we want to KEEP the entry price in history
+                // and not overwrite it with the EOD price, to honor the user's 
+                // "price at click time" preference.
+                if (option.entryDate === today) {
+                    // Do nothing for history today if it's already there
+                    if (todayEntryIndex === -1) {
+                        option.history.push({
+                            date: today,
+                            optionPremium: latest.premium,
+                            stockPrice: latest.stockPrice
+                        });
+                        hasChanges = true;
+                    }
+                } else {
+                    // For non-entry days, we can overwrite the today entry with the latest EOD data
+                    if (todayEntryIndex !== -1) {
+                        option.history[todayEntryIndex] = {
+                            date: today,
+                            optionPremium: latest.premium,
+                            stockPrice: latest.stockPrice
+                        };
+                    } else {
+                        option.history.push({
+                            date: today,
+                            optionPremium: latest.premium,
+                            stockPrice: latest.stockPrice
+                        });
+                    }
+                    hasChanges = true;
+                }
             }
         } catch (e) {
             console.error(`Failed to update performance for ${option.id}:`, e);

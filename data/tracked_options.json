@@ -20,6 +20,11 @@
         "date": "2026-02-18",
         "optionPremium": 12.559999999999999,
         "stockPrice": 605.67
+      },
+      {
+        "date": "2026-02-19",
+        "optionPremium": 13.25,
+        "stockPrice": 603.3528
       }
     ],
     "status": "ACTIVE"
@@ -47,6 +52,11 @@
         "date": "2026-02-18",
         "optionPremium": 31,
         "stockPrice": 752.21
+      },
+      {
+        "date": "2026-02-19",
+        "optionPremium": 35.05,
+        "stockPrice": 760.6
       }
     ],
     "status": "ACTIVE"
@@ -73,6 +83,11 @@
         "date": "2026-02-18",
         "optionPremium": 3.9000000000000004,
         "stockPrice": 126.61
+      },
+      {
+        "date": "2026-02-19",
+        "optionPremium": 2.25,
+        "stockPrice": 124.99
       }
     ],
     "status": "ACTIVE"
@@ -99,6 +114,11 @@
         "date": "2026-02-18",
         "optionPremium": 2.825,
         "stockPrice": 156.76
+      },
+      {
+        "date": "2026-02-19",
+        "optionPremium": 3.42,
+        "stockPrice": 158.48
       }
     ],
     "status": "ACTIVE"
@@ -124,6 +144,11 @@
         "date": "2026-02-18",
         "optionPremium": 0.05,
         "stockPrice": 6.985
+      },
+      {
+        "date": "2026-02-19",
+        "optionPremium": 0.05,
+        "stockPrice": 6.97
       }
     ],
     "status": "ACTIVE"
@@ -149,6 +174,11 @@
         "date": "2026-02-18",
         "optionPremium": 10.15,
         "stockPrice": 485.07
+      },
+      {
+        "date": "2026-02-19",
+        "optionPremium": 11.9,
+        "stockPrice": 490
       }
     ],
     "status": "ACTIVE"
@@ -171,8 +201,8 @@
     "history": [
       {
         "date": "2026-02-19",
-        "optionPremium": 0.825,
-        "stockPrice": 16.905
+        "optionPremium": 0.85,
+        "stockPrice": 17.019
       }
     ],
     "status": "ACTIVE"
@@ -193,8 +223,8 @@
     "history": [
       {
         "date": "2026-02-19",
-        "optionPremium": 5.5,
-        "stockPrice": 750.445
+        "optionPremium": 5.89,
+        "stockPrice": 760.6
       }
     ],
     "status": "ACTIVE"
@@ -220,8 +250,8 @@
     "history": [
       {
         "date": "2026-02-19",
-        "optionPremium": 6.2,
-        "stockPrice": 204.36
+        "optionPremium": 6.02,
+        "stockPrice": 204.86
       }
     ],
     "status": "ACTIVE"
@@ -242,8 +272,8 @@
     "history": [
       {
         "date": "2026-02-19",
-        "optionPremium": 0.76,
-        "stockPrice": 120.9
+        "optionPremium": 0.83,
+        "stockPrice": 121.77
       }
     ],
     "status": "ACTIVE"
@@ -264,8 +294,8 @@
     "history": [
       {
         "date": "2026-02-19",
-        "optionPremium": 1.73,
-        "stockPrice": 79.11
+        "optionPremium": 1.68,
+        "stockPrice": 78.85
       }
     ],
     "status": "ACTIVE"
@@ -289,8 +319,8 @@
     "history": [
       {
         "date": "2026-02-19",
-        "optionPremium": 14.21,
-        "stockPrice": 604.9
+        "optionPremium": 14.75,
+        "stockPrice": 603.3528
       }
     ],
     "status": "ACTIVE"
@@ -311,8 +341,8 @@
     "history": [
       {
         "date": "2026-02-19",
-        "optionPremium": 6.665,
-        "stockPrice": 264.13
+        "optionPremium": 7.16,
+        "stockPrice": 264.6425
       }
     ],
     "status": "ACTIVE"
@@ -333,8 +363,8 @@
     "history": [
       {
         "date": "2026-02-19",
-        "optionPremium": 1.15,
-        "stockPrice": 92.455
+        "optionPremium": 1.2,
+        "stockPrice": 92.97
       }
     ],
     "status": "ACTIVE"
@@ -357,8 +387,8 @@
     "history": [
       {
         "date": "2026-02-19",
-        "optionPremium": 0.575,
-        "stockPrice": 14.265
+        "optionPremium": 0.7,
+        "stockPrice": 13.8894
       }
     ],
     "status": "ACTIVE"
@@ -383,8 +413,8 @@
     "history": [
       {
         "date": "2026-02-19",
-        "optionPremium": 10,
-        "stockPrice": 186.57
+        "optionPremium": 10.5,
+        "stockPrice": 187.81
       }
     ],
     "status": "ACTIVE"
@@ -410,8 +440,8 @@
     "history": [
       {
         "date": "2026-02-19",
-        "optionPremium": 4.025,
-        "stockPrice": 74.61
+        "optionPremium": 3.96,
+        "stockPrice": 75.57
       }
     ],
     "status": "ACTIVE"
@@ -437,8 +467,8 @@
     "history": [
       {
         "date": "2026-02-19",
-        "optionPremium": 6.625,
-        "stockPrice": 134.9
+        "optionPremium": 6.45,
+        "stockPrice": 134.98
       }
     ],
     "status": "ACTIVE"
@@ -461,8 +491,102 @@
     "history": [
       {
         "date": "2026-02-19",
-        "optionPremium": 12.775,
-        "stockPrice": 683.92
+        "optionPremium": 12.4,
+        "stockPrice": 684.631
+      }
+    ],
+    "status": "ACTIVE"
+  },
+  {
+    "id": "AMAT  260227C00400000",
+    "ticker": "AMAT",
+    "companyName": "Applied Materials, Inc.",
+    "strike": 400,
+    "expiry": "2026-02-27",
+    "type": "CALL",
+    "entryPremium": 1.79,
+    "entryStockPrice": 367.68,
+    "entryDate": "2026-02-19",
+    "reasoning": [
+      "Institutional flow at $400. (Live IV: 49.9%)"
+    ],
+    "history": [
+      {
+        "date": "2026-02-19",
+        "optionPremium": 1.58,
+        "stockPrice": 370.85
+      }
+    ],
+    "status": "ACTIVE"
+  },
+  {
+    "id": "FIG   260327P00025000",
+    "ticker": "FIG",
+    "companyName": "Figma, Inc.",
+    "strike": 25,
+    "expiry": "2026-03-27",
+    "type": "PUT",
+    "entryPremium": 1.89,
+    "entryStockPrice": 26.3,
+    "entryDate": "2026-02-19",
+    "reasoning": [
+      "Price < EMA50",
+      "EMA Stack Bearish (Short < Mid < Long)"
+    ],
+    "history": [
+      {
+        "date": "2026-02-19",
+        "optionPremium": 1.89,
+        "stockPrice": 25.76
+      }
+    ],
+    "status": "ACTIVE"
+  },
+  {
+    "id": "XOM   260227C00155000",
+    "ticker": "XOM",
+    "companyName": "Exxon Mobil Corporation",
+    "strike": 155,
+    "expiry": "2026-02-27",
+    "type": "CALL",
+    "entryPremium": 1.42,
+    "entryStockPrice": 151.6,
+    "entryDate": "2026-02-19",
+    "reasoning": [
+      "Institutional flow at $155. (Live IV: 30.2%)"
+    ],
+    "history": [
+      {
+        "date": "2026-02-19",
+        "optionPremium": 1.15,
+        "stockPrice": 150.92
+      }
+    ],
+    "status": "ACTIVE"
+  },
+  {
+    "id": "MSFT  260327P00390000",
+    "ticker": "MSFT",
+    "companyName": "Microsoft Corporation",
+    "strike": 390,
+    "expiry": "2026-03-27",
+    "type": "PUT",
+    "entryPremium": 10.5,
+    "entryStockPrice": 397.12,
+    "entryDate": "2026-02-19",
+    "reasoning": [
+      "Price < EMA50",
+      "Price < EMA200",
+      "EMA Stack Bearish (Short < Mid < Long)",
+      "Developing Bearish Momentum",
+      "MACD Bearish Cross",
+      "Bollinger Downtrend"
+    ],
+    "history": [
+      {
+        "date": "2026-02-19",
+        "optionPremium": 10.22,
+        "stockPrice": 398.4
       }
     ],
     "status": "ACTIVE"
