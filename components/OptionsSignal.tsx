@@ -251,6 +251,18 @@ export default function OptionsSignal({ data, loading, onRefresh, companyName, u
                             </span>
                         )}
                     </div>
+                    {/* Render Spread Sell Leg if available */}
+                    {data.spreadSellStrike && (
+                        <div className="text-gray-400 font-mono text-[11px] flex items-center gap-1.5 mt-1 ml-1 opacity-80">
+                            <span className="uppercase text-[9px] font-bold border rounded px-1 border-gray-600 bg-gray-800">SELL</span>
+                            ${data.spreadSellStrike} <span className="text-gray-500 text-[10px]">Strike</span>
+                            {data.spreadSellPrice && (
+                                <span className="text-gray-400 text-[10px] font-medium">
+                                    @ ${data.spreadSellPrice.toFixed(2)}
+                                </span>
+                            )}
+                        </div>
+                    )}
                 </div>
                 <div className="text-right flex flex-col items-end gap-1">
                     <div className="text-[10px] text-gray-100">Expiry</div>

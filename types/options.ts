@@ -22,6 +22,8 @@ export interface OptionRecommendation {
     openInterest?: number;     // Open interest
     iv?: number;               // Implied Volatility (0.0 to 1.0+)
     contractPrice?: number;    // Current market price of the option contract
+    spreadSellStrike?: number; // The strike price to SELL if a Spread strategy is recommended
+    spreadSellPrice?: number;  // The bid price of the SELL strike if available
     isUnusual?: boolean;       // True if Volume > Open Interest
     rsi?: number;              // RSI level of the underlying stock
     technicalConfirmations?: number;

@@ -231,8 +231,8 @@ export async function generateOptionSignal(
     }
 
     // Recalculate DTE based exactly on which option we actually ended up finding!
-    const finalExpiry = realOption?.expiration || expiry;
-    const finalDte = Math.ceil((new Date(finalExpiry).getTime() - Date.now()) / (1000 * 3600 * 24));
+    let finalExpiry = realOption?.expiration || expiry;
+    let finalDte = Math.ceil((new Date(finalExpiry).getTime() - Date.now()) / (1000 * 3600 * 24));
 
     // ── 6. Resolve Greeks for chosen contract ──────────────────────
     if (realOption) {
@@ -260,6 +260,50 @@ export async function generateOptionSignal(
         }
     }
 
+    // ── 6.5 Tactical Flow Upgrade ──────────────────────────────────────────────
+    // Check if the Discovery Engine has a highly liquid contract that matches our direction
+    if (symbol) {
+        try {
+            // Find top options but don't force skip cache unless we have to
+            const topCandidates = await findTopOptions(symbol, currentPrice, direction as any, rsi, skipCache);
+            if (topCandidates.length > 0) {
+                // Look for a top candidate that matches our direction and has massive volume
+                const flowUpgrade = topCandidates.find(c =>
+                    c.type === direction &&
+                    (c.volume || 0) >= Math.max(volumeThreshold * 50, 200) // Demand heavy volume
+                );
+
+                if (flowUpgrade) {
+                    // Hijack the option selection with the tactical flow pick!
+                    realOption = {
+                        symbol: flowUpgrade.symbol,
+                        strike: flowUpgrade.strike,
+                        expiration: flowUpgrade.expiry,
+                        bid: flowUpgrade.contractPrice, // approx
+                        ask: flowUpgrade.contractPrice,
+                        last: flowUpgrade.contractPrice,
+                        volume: flowUpgrade.volume,
+                        openInterest: flowUpgrade.openInterest,
+                        greeks: {
+                            delta: isCall ? (flowUpgrade.probabilityITM || 0.5) : -(flowUpgrade.probabilityITM || 0.5),
+                            impliedVolatility: flowUpgrade.iv
+                        }
+                    };
+
+                    intendedStrike = flowUpgrade.strike;
+                    probabilityITM = flowUpgrade.probabilityITM || probabilityITM;
+                    atmIV = flowUpgrade.iv || atmIV;
+
+                    console.log(`[Options] ${symbol}: Tactical Flow Upgrade! Using $${flowUpgrade.strike} @ ${flowUpgrade.expiry}`);
+                }
+            }
+        } catch (_) { }
+    }
+
+    // Recalculate DTE based exactly on which option we actually ended up finding!
+    finalExpiry = realOption?.expiration || expiry;
+    finalDte = Math.ceil((new Date(finalExpiry).getTime() - Date.now()) / (1000 * 3600 * 24));
+
     // ── 7. PCR-adjusted confidence (base 50, not 60) ──────────────────────────
     // Requires real convergence of signals to reach 80+
     const rawSpread = Math.abs(bullScore - bearScore);
@@ -279,12 +323,23 @@ export async function generateOptionSignal(
     }
     // Delta quality bonus: being near optimal 0.35 delta adds confidence
     if (probabilityITM > 0.25 && probabilityITM < 0.55) confidence += 5;
+
+    // Tactical Flow Bonus: if we matched a discovery engine pick, massive boost
+    let tacticalNote = '';
+    if (realOption && realOption.volume >= 200) {
+        confidence += 15;
+        tacticalNote = ` Validated by heavy Tactical Flow (${realOption.volume} Vol).`;
+    }
+
     confidence = Math.min(99, Math.max(50, Math.round(confidence)));
 
     // ── 8. EMA-anchored stop loss ──────────────────────────────────────────────
     // Use EMA-50 as a logical support/resistance floor instead of bare ATR
     let stopLoss: number;
     let takeProfit1: number;
+    let spreadSellStrike: number | undefined = undefined;
+    let spreadSellPrice: number | undefined = undefined;
+
     if (isCall) {
         const ema50Floor = (ema50 && ema50 < currentPrice && ema50 > currentPrice * 0.90)
             ? ema50 * 0.99 : currentPrice - effectiveAtr;
@@ -297,10 +352,50 @@ export async function generateOptionSignal(
         takeProfit1 = parseFloat((currentPrice - effectiveAtr * 2).toFixed(2));
     }
 
+    // ── 8.5 Find Sell Leg for Spread ───────────────────────────────────────────
+    if (useSpread && realOption && chain?.options?.[finalExpiry]) {
+        try {
+            const expChain = chain.options[finalExpiry];
+            const strikeKeys = Object.keys(expChain).map(Number).sort((a, b) => a - b);
+
+            // We want to sell a strike near the takeProfit1 target
+            // For calls: the short strike must be > long strike
+            // For puts: the short strike must be < long strike
+            const validStrikes = strikeKeys.filter(s => isCall ? s > realOption.strike : s < realOption.strike);
+
+            if (validStrikes.length > 0) {
+                // Find the strike closest to the takeProfit1 price
+                let bestDiff = Infinity;
+                let bestStrike = validStrikes[0];
+
+                for (const s of validStrikes) {
+                    const diff = Math.abs(s - takeProfit1);
+                    if (diff < bestDiff) {
+                        bestDiff = diff;
+                        bestStrike = s;
+                    }
+                }
+
+                const sellOptData = expChain[bestStrike];
+                const sellOpt = isCall ? sellOptData?.call : sellOptData?.put;
+
+                // Only suggest it if it actually exists in the chain
+                if (sellOpt) {
+                    spreadSellStrike = bestStrike;
+                    spreadSellPrice = (sellOpt.bid && sellOpt.ask)
+                        ? (sellOpt.bid + sellOpt.ask) / 2
+                        : (sellOpt.bid || sellOpt.last || sellOpt.ask || 0);
+
+                    console.log(`[Options] ${symbol}: Derived Spread leg -> SELL $${spreadSellStrike} @ $${spreadSellPrice}`);
+                }
+            }
+        } catch (_) { }
+    }
+
     // ── 9. Rich reason string ──────────────────────────────────────────────────
     const ivDisplay = ` IV ${(atmIV * 100).toFixed(0)}%${highIV ? ' (elevated → spread rec)' : ''}.`;
     const deltaDisplay = probabilityITM ? ` Δ${probabilityITM.toFixed(2)}` : '';
-    const reason = `${direction} Setup: RSI ${Math.round(rsi)}, ${signals.slice(0, 2).join(' + ') || 'Confluent signals'}.${pcrNote}${ivDisplay}${deltaDisplay} ${techConfirmations} tech signals.`;
+    const reason = `${direction} Setup: RSI ${Math.round(rsi)}, ${signals.slice(0, 2).join(' + ') || 'Confluent signals'}.${pcrNote}${tacticalNote}${ivDisplay}${deltaDisplay} ${techConfirmations} tech signals.`;
 
     const fundamentalDetails = (fundamentalConfirmations || 0) >= 2
         ? ["Strong Earnings Growth", "Undervalued P/E Ratio", "Healthy Debt-to-Equity"]
@@ -348,6 +443,8 @@ export async function generateOptionSignal(
         openInterest: realOption.openInterest,
         iv: realOption.greeks?.impliedVolatility || atmIV,
         contractPrice: midPrice,
+        spreadSellStrike,
+        spreadSellPrice,
         rsi,
         isUnusual: false,
         technicalConfirmations: techConfirmations,
