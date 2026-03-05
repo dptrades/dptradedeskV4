@@ -18,6 +18,10 @@ export class SchwabClient {
     private chainCache: Map<string, { data: PublicOptionChain; timestamp: number }> = new Map();
     private readonly CHAIN_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 
+    // 5-minute Greeks cache
+    private greeksCache: Map<string, { data: any; timestamp: number }> = new Map();
+    private readonly GREEKS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
     constructor() {
         this.clientId = env.SCHWAB_CLIENT_ID || '';
         this.clientSecret = env.SCHWAB_CLIENT_SECRET || '';
@@ -112,12 +116,32 @@ export class SchwabClient {
      * Cached for 10 minutes.
      */
     async getOptionChainNormalized(symbol: string, targetExpiry?: string): Promise<PublicOptionChain | null> {
-        // Check cache
+        // Check exact cache first
         const cacheKey = `${symbol}:${targetExpiry || 'ALL'}`;
         const cached = this.chainCache.get(cacheKey);
         if (cached && (Date.now() - cached.timestamp) < this.CHAIN_CACHE_TTL) {
             console.log(`[SchwabAPI] ⚡ Serving cached chain for ${symbol} (age: ${Math.round((Date.now() - cached.timestamp) / 1000)}s)`);
             return cached.data;
+        }
+
+        // If asking for a specific expiry, see if we have the "ALL" chain cached and fresh
+        if (targetExpiry) {
+            const allCached = this.chainCache.get(`${symbol}:ALL`);
+            if (allCached && (Date.now() - allCached.timestamp) < this.CHAIN_CACHE_TTL) {
+                console.log(`[SchwabAPI] ⚡ Extracting ${targetExpiry} from cached ALL chain for ${symbol}`);
+                // Extract just that expiry
+                const extracted: PublicOptionChain = {
+                    symbol: allCached.data.symbol,
+                    expirations: allCached.data.expirations.includes(targetExpiry) ? [targetExpiry] : [],
+                    strikes: allCached.data.strikes,
+                    options: {
+                        [targetExpiry]: allCached.data.options[targetExpiry] || {}
+                    }
+                };
+                // Cache this specific slice so next time it hits the exact cache
+                this.chainCache.set(cacheKey, { data: extracted, timestamp: Date.now() });
+                return extracted;
+            }
         }
 
         if (Date.now() < this.throttledUntil) return null;
@@ -265,6 +289,11 @@ export class SchwabClient {
      * Schwab's /quotes endpoint returns Greeks inline.
      */
     async getGreeks(symbol: string): Promise<any> {
+        const cached = this.greeksCache.get(symbol);
+        if (cached && (Date.now() - cached.timestamp) < this.GREEKS_CACHE_TTL) {
+            return cached.data;
+        }
+
         if (Date.now() < this.throttledUntil) return null;
         const token = await this.refreshAccessToken();
         if (!token) return null;
@@ -278,7 +307,7 @@ export class SchwabClient {
                 const quote = response.data[symbol];
                 const q = quote.quote;
                 console.log(`[SchwabAPI] Greeks for ${symbol} in ${Date.now() - start}ms`);
-                return {
+                const result = {
                     delta: q?.delta || 0,
                     gamma: q?.gamma || 0,
                     theta: q?.theta || 0,
@@ -287,6 +316,8 @@ export class SchwabClient {
                     impliedVolatility: (q?.volatility || 0) / 100,
                     lastPrice: quote.lastPrice || q?.lastPrice || 0
                 };
+                this.greeksCache.set(symbol, { data: result, timestamp: Date.now() });
+                return result;
             }
         } catch (error: any) {
             if (error.response?.status === 429) {

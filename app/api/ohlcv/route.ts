@@ -5,12 +5,17 @@ import { calculateIndicators } from '@/lib/indicators';
 
 const yahooFinance = new YahooFinance();
 
+// ── Per-symbol OHLCV cache (15 min) ───────────────────────────────────────
+// Prevents re-fetching the same chart data on every page navigation.
+// Key: `${symbol}:${interval}`
+const OHLCV_CACHE_TTL = 15 * 60 * 1000;
+const ohlcvCache = new Map<string, { payload: any; timestamp: number }>();
+
 // Check if ticker is a US stock (eligible for Alpaca)
 function isUSStock(ticker: string): boolean {
-    // Indices, forex, and futures use special characters
     if (ticker.startsWith('^')) return false; // Indices (^VIX, ^GSPC)
-    if (ticker.includes('=')) return false; // Forex (EURUSD=X, JPY=X)
-    if (ticker.endsWith('=F')) return false; // Futures/Commodities (GC=F)
+    if (ticker.includes('=')) return false;   // Forex (EURUSD=X)
+    if (ticker.endsWith('=F')) return false;  // Futures (GC=F)
     return true;
 }
 
@@ -23,9 +28,19 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: 'Symbol is required' }, { status: 400 });
     }
 
+    const ticker = symbol.toUpperCase();
+    const cacheKey = `${ticker}:${interval}`;
+
+    // Serve from cache if fresh
+    const cached = ohlcvCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < OHLCV_CACHE_TTL) {
+        console.log(`[OHLCV] ⚡ Cache hit for ${ticker} ${interval}`);
+        return NextResponse.json(cached.payload, {
+            headers: { 'Cache-Control': 'public, s-maxage=900, stale-while-revalidate=60' }
+        });
+    }
+
     try {
-        // Map symbol to ticker
-        let ticker = symbol.toUpperCase();
 
         // Determine timeframe for Alpaca
         let alpacaTimeframe: '1Day' | '1Hour' | '15Min' = '1Day';
@@ -83,23 +98,18 @@ export async function GET(request: Request) {
 
                     // 4H aggregation if needed
                     if (interval === '4h' && data.length > 0) {
-                        return NextResponse.json({ data: aggregate4H(data), companyName }, {
-                            headers: {
-                                'Cache-Control': 'no-store, max-age=0, must-revalidate',
-                                'Pragma': 'no-cache',
-                                'Expires': '0'
-                            }
+                        const payload = { data: aggregate4H(data), companyName };
+                        ohlcvCache.set(cacheKey, { payload, timestamp: Date.now() });
+                        return NextResponse.json(payload, {
+                            headers: { 'Cache-Control': 'public, s-maxage=900, stale-while-revalidate=60' }
                         });
                     }
 
                     const indicators = calculateIndicators(data);
-
-                    return NextResponse.json({ data: indicators, companyName }, {
-                        headers: {
-                            'Cache-Control': 'no-store, max-age=0, must-revalidate',
-                            'Pragma': 'no-cache',
-                            'Expires': '0'
-                        }
+                    const payload = { data: indicators, companyName };
+                    ohlcvCache.set(cacheKey, { payload, timestamp: Date.now() });
+                    return NextResponse.json(payload, {
+                        headers: { 'Cache-Control': 'public, s-maxage=900, stale-while-revalidate=60' }
                     });
                 }
                 console.log(`[OHLCV] Alpaca returned no data for ${ticker}, falling back to Yahoo`);
@@ -170,13 +180,10 @@ export async function GET(request: Request) {
 
         // Calculate indicators
         const indicators = calculateIndicators(data);
-
-        return NextResponse.json({ data: indicators, companyName }, {
-            headers: {
-                'Cache-Control': 'no-store, max-age=0, must-revalidate',
-                'Pragma': 'no-cache',
-                'Expires': '0'
-            }
+        const payload = { data: indicators, companyName };
+        ohlcvCache.set(cacheKey, { payload, timestamp: Date.now() });
+        return NextResponse.json(payload, {
+            headers: { 'Cache-Control': 'public, s-maxage=900, stale-while-revalidate=60' }
         });
 
     } catch (error: any) {
