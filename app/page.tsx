@@ -29,6 +29,7 @@ import NewsFeed from '../components/NewsFeed';
 import LivePriceDisplay from '../components/LivePriceDisplay';
 import { Loading } from '@/components/ui/Loading';
 import { ErrorMessage } from '@/components/ui/ErrorMessage';
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { Zap, ChevronRight, Activity, RefreshCw, Database } from 'lucide-react';
 import SectorPerformanceWidget from '../components/SectorPerformanceWidget';
 import SectorDetailModal from '../components/SectorDetailModal';
@@ -112,25 +113,19 @@ export default function Dashboard() {
   const sentimentScore = useMemo(() => {
     if (!news.length) return 50;
     let score = 50;
-    news.forEach(n => {
-      if (n.sentiment === 'positive') score += 10;
-      if (n.sentiment === 'negative') score -= 10;
+    // Weighted scoring: each item contributes at most ±5 points, with recency weighting.
+    // Item 0 is most recent (weight 1.0), older items decay slightly (min 0.5).
+    news.forEach((n, i) => {
+      const recencyWeight = Math.max(0.5, 1 - (i / news.length) * 0.5);
+      const contribution = 5 * recencyWeight;
+      if (n.sentiment === 'positive') score += contribution;
+      if (n.sentiment === 'negative') score -= contribution;
     });
-    return Math.max(0, Math.min(100, score));
+    return Math.max(0, Math.min(100, Math.round(score)));
   }, [news]);
 
-  // Effect to handle URL params
-  useEffect(() => {
-    if (urlSymbol) {
-      setSymbol(urlSymbol);
-      // Also update the stockInput to match so it doesn't look weird
-      setStockInput(urlSymbol);
-      // Force loading state reset to ensure UI feedback
-      setLoading(true);
-    }
-  }, [urlSymbol]);
 
-  // Debounce stock input (only if user is typing, not if URL changed)
+
   useEffect(() => {
     const handler = setTimeout(() => {
       const trimmedInput = stockInput.trim().toUpperCase();
@@ -160,6 +155,7 @@ export default function Dashboard() {
     if (urlSymbol) {
       setSymbol(urlSymbol);
       setStockInput(urlSymbol);
+      setLoading(true); // Show loader immediately when navigating via URL
       setIsInitialized(true);
     } else {
       const savedSymbol = localStorage.getItem('lastTicker');
@@ -170,6 +166,7 @@ export default function Dashboard() {
       setIsInitialized(true);
     }
   }, [urlSymbol]);
+
 
   // Sync symbol to URL and localStorage
   useEffect(() => {
@@ -510,6 +507,7 @@ export default function Dashboard() {
                     showChange={true}
                     refreshKey={priceRefreshKey}
                     displayMode="regular"
+                    showStatusBadge={true}
                   />
                   {lastUpdated && (
                     <span className="text-[10px] text-gray-400 font-mono mt-1">
@@ -525,18 +523,9 @@ export default function Dashboard() {
                   <HeaderAnalyst symbol={symbol} analystNews={analystData} />
                 </div>
               </div>
-
-              <LivePriceDisplay
-                symbol={symbol}
-                enabled={true}
-                refreshKey={priceRefreshKey}
-                showChange={false}
-                fallbackPrice={stats?.currentPrice}
-                className="status-badge-only"
-                displayMode="regular"
-              />
             </div>
           </header>
+
 
           {loading ? (
             <Loading message="Fetching dashboard data..." />
@@ -549,14 +538,16 @@ export default function Dashboard() {
                 {/* Deep Dive - Takes 3/4 - FIRST in DOM = LEFT */}
                 <div className="lg:col-span-2 xl:col-span-3 overflow-x-auto pb-2 scrollbar-hide">
                   <div className="min-w-[600px] lg:min-w-0">
-                    <DeepDiveContent
-                      key={symbol}
-                      symbol={symbol}
-                      showOptionsFlow={false}
-                      onRefresh={handleManualRefresh}
-                      refreshKey={refreshTrigger}
-                      priceRefreshKey={priceRefreshKey}
-                    />
+                    <ErrorBoundary name="Deep Dive" onRetry={handleManualRefresh}>
+                      <DeepDiveContent
+                        key={symbol}
+                        symbol={symbol}
+                        showOptionsFlow={false}
+                        onRefresh={handleManualRefresh}
+                        refreshKey={refreshTrigger}
+                        priceRefreshKey={priceRefreshKey}
+                      />
+                    </ErrorBoundary>
                   </div>
                 </div>
 
@@ -566,39 +557,48 @@ export default function Dashboard() {
                     <h3 className="text-sm font-bold text-gray-100 uppercase tracking-wider mb-2 flex items-center gap-2">
                       <Zap className="w-4 h-4 text-blue-400" /> Tactical Option Play
                     </h3>
-                    <OptionsSignal
-                      data={optionsSignal}
-                      loading={loading}
-                      onRefresh={handleManualRefresh}
-                      companyName={companyName}
-                      underlyingPrice={latest?.close}
-                    />
+                    <ErrorBoundary name="Options Signal" onRetry={handleManualRefresh}>
+                      <OptionsSignal
+                        data={optionsSignal}
+                        loading={loading}
+                        onRefresh={handleManualRefresh}
+                        companyName={companyName}
+                        underlyingPrice={latest?.close}
+                      />
+                    </ErrorBoundary>
                   </div>
 
                   {/* Price Statistics - Below AI Option Play */}
                   <div>
                     <h3 className="text-sm font-bold text-gray-100 uppercase tracking-wider mb-2 px-1 text-center lg:text-left">Price Statistics</h3>
-                    <HighlightStats stats={stats} />
+                    <ErrorBoundary name="Price Statistics">
+                      <HighlightStats stats={stats} />
+                    </ErrorBoundary>
                   </div>
                 </div>
               </div>
 
               {/* TOP 3 OPTIONS DISCOVERY (Moved below Deep Dive) */}
               <div className="space-y-6">
-                <TopOptionsList
-                  options={top3Options}
-                  symbol={symbol || ''}
-                  loading={loading || (top3Options.length === 0 && !error)}
-                  companyName={companyName}
-                  underlyingPrice={latest?.close}
-                />
+                <ErrorBoundary name="Top Options" onRetry={handleManualRefresh}>
+                  <TopOptionsList
+                    options={top3Options}
+                    symbol={symbol || ''}
+                    loading={loading || (top3Options.length === 0 && !error)}
+                    companyName={companyName}
+                    underlyingPrice={latest?.close}
+                  />
+                </ErrorBoundary>
               </div>
 
               {/* ROW 5: Live News - BELOW AI Insight */}
               <div>
                 <h3 className="text-sm font-bold text-gray-100 uppercase tracking-wider mb-4 px-1 text-center lg:text-left">Live Intelligence</h3>
-                <NewsFeed news={news} loading={loading} />
+                <ErrorBoundary name="News Feed">
+                  <NewsFeed news={news} loading={loading} />
+                </ErrorBoundary>
               </div>
+
             </div>
           )}
 

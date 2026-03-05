@@ -6,8 +6,10 @@ import { getNewsData } from './news-service';
 import { fetchAlpacaBars } from './alpaca';
 import { publicClient } from './public-api';
 import { runSmartScan, DiscoveredStock } from './smart-scanner';
-import { getSectorMap, SCANNER_WATCHLIST } from './constants';
+import { getSectorMap, SCANNER_WATCHLIST, CONVICTION_SCORE_THRESHOLD, MAX_STOCKS_PER_SECTOR, MIN_TECHNICAL_SCORE, MIN_ANALYST_SCORE } from './constants';
 import { generateOptionSignal } from './options';
+import { logger } from './logger';
+
 
 // Import and re-export types for backwards compatibility
 import type { ConvictionStock } from '../types/stock';
@@ -108,13 +110,33 @@ if (!global._alphaHunterCacheV8) global._alphaHunterCacheV8 = null;
 
 let isScanning = false;
 
+/**
+ * Calculates average volume and last-bar volume difference vs 1y average.
+ * Extracted from both scanConviction and scanAlphaHunter processBatch to avoid duplication.
+ *
+ * TODO: The `processBatch` function itself is duplicated between scanConviction and scanAlphaHunter.
+ * The key differences are: (1) score weights, (2) earningsTrend module in Yahoo (Top Picks only),
+ * (3) volume surge detection (Alpha Hunter only), and (4) quality gate (Top Picks only).
+ * These should be extracted into a single `runScan(config: ScanConfig)` function.
+ */
+function calcVolStats(data: any[]): { avg: number; diff: number } {
+    if (data.length < 10) return { avg: 0, diff: 0 };
+    const lookback = data.slice(-252);
+    const sum = lookback.reduce((acc: number, val: any) => acc + (val.volume || 0), 0);
+    const avg = sum / lookback.length;
+    const lastVol = data[data.length - 1].volume || 0;
+    const diff = avg > 0 ? ((lastVol - avg) / avg) * 100 : 0;
+    return { avg, diff };
+}
+
+
 export async function scanConviction(forceRefresh = false, returnAll = false): Promise<ConvictionStock[]> {
     const marketSession = publicClient.getMarketSession();
 
     // Logic: If market is OFF, only scan if cache is empty (one-time baseline fetch).
     // Otherwise, always serve cache during OFF hours to prevent redundant load.
     if (marketSession === 'OFF' && global._megaCapCacheV9 && !forceRefresh) {
-        console.log("🌙 Market is CLOSED. Serving preserved Top Picks cache.");
+        logger.log("🌙 Market is CLOSED. Serving preserved Top Picks cache.");
         return returnAll ? global._megaCapCacheV9.rawData : global._megaCapCacheV9.data;
     }
 
@@ -350,17 +372,6 @@ export async function scanConviction(forceRefresh = false, returnAll = false): P
                 let volumeAvg1y = 0;
                 let volumeDiff = 0;
 
-                // Helper to calc avg volume
-                const calcVolStats = (data: any[]) => {
-                    if (data.length < 10) return { avg: 0, diff: 0 };
-                    // Use up to last 252 bars (approx 1 year)
-                    const lookback = data.slice(-252);
-                    const sum = lookback.reduce((acc, val) => acc + (val.volume || 0), 0);
-                    const avg = sum / lookback.length;
-                    const lastVol = data[data.length - 1].volume || 0;
-                    const diff = avg > 0 ? ((lastVol - avg) / avg) * 100 : 0;
-                    return { avg, diff };
-                };
 
                 if (usingAlpaca && cleanData.length > 1) {
                     const last = cleanData[cleanData.length - 1];
@@ -479,21 +490,21 @@ export async function scanConviction(forceRefresh = false, returnAll = false): P
     // Quality gate: require minimum sub-scores to avoid technically broken stocks
     // (Alpha Hunter intentionally skips this to stay broader)
     const qualityGated = sortedRaw.filter(r =>
-        r.technicalScore >= 50 && r.analystScore >= 50
+        r.technicalScore >= MIN_TECHNICAL_SCORE && r.analystScore >= MIN_ANALYST_SCORE
     );
-    console.log(`✅ [Top Picks] Quality gate: ${sortedRaw.length} → ${qualityGated.length} stocks (technicalScore ≥50 & analystScore ≥50)`);
+    logger.log(`✅ [Top Picks] Quality gate: ${sortedRaw.length} → ${qualityGated.length} stocks (technicalScore ≥${MIN_TECHNICAL_SCORE} & analystScore ≥${MIN_ANALYST_SCORE})`);
 
     // Sector diversity cap: max 3 stocks per sector
     const sectorCounts: Record<string, number> = {};
     const diversified = qualityGated.filter(r => {
         const sector = r.sector || 'Other';
         sectorCounts[sector] = (sectorCounts[sector] || 0) + 1;
-        return sectorCounts[sector] <= 3;
+        return sectorCounts[sector] <= MAX_STOCKS_PER_SECTOR;
     });
-    console.log(`🏦 [Top Picks] Sector cap applied: ${qualityGated.length} → ${diversified.length} stocks (max 3 per sector)`);
+    logger.log(`🏦 [Top Picks] Sector cap applied: ${qualityGated.length} → ${diversified.length} stocks (max ${MAX_STOCKS_PER_SECTOR} per sector)`);
 
     // Score >= 75 threshold
-    const sortedFiltered = diversified.filter(r => r.score >= 75);
+    const sortedFiltered = diversified.filter(r => r.score >= CONVICTION_SCORE_THRESHOLD);
 
     // Update Cache
     global._megaCapCacheV9 = {
@@ -512,7 +523,7 @@ export async function scanAlphaHunter(forceRefresh = false, returnAll = false): 
 
     // Logic: If market is OFF, only scan if cache is empty.
     if (marketSession === 'OFF' && global._alphaHunterCacheV8 && !forceRefresh) {
-        console.log("🌙 Market is CLOSED. Serving preserved Alpha Hunter cache.");
+        logger.log("🌙 Market is CLOSED. Serving preserved Alpha Hunter cache.");
         return returnAll ? global._alphaHunterCacheV8.rawData : global._alphaHunterCacheV8.data;
     }
 
@@ -740,17 +751,6 @@ export async function scanAlphaHunter(forceRefresh = false, returnAll = false): 
                 let volumeAvg1y = 0;
                 let volumeDiff = 0;
 
-                // Helper to calc avg volume
-                const calcVolStats = (data: any[]) => {
-                    if (data.length < 10) return { avg: 0, diff: 0 };
-                    // Use up to last 252 bars (approx 1 year)
-                    const lookback = data.slice(-252);
-                    const sum = lookback.reduce((acc, val) => acc + (val.volume || 0), 0);
-                    const avg = sum / lookback.length;
-                    const lastVol = data[data.length - 1].volume || 0;
-                    const diff = avg > 0 ? ((lastVol - avg) / avg) * 100 : 0;
-                    return { avg, diff };
-                };
 
                 if (usingAlpaca && cleanData.length > 1) {
                     const last = cleanData[cleanData.length - 1];
@@ -876,7 +876,7 @@ export async function scanAlphaHunter(forceRefresh = false, returnAll = false): 
     // Sort by score desc
     const sortedRaw = results.sort((a, b) => b.score - a.score);
     // Filter >= 75
-    const sortedFiltered = sortedRaw.filter(r => r.score >= 75);
+    const sortedFiltered = sortedRaw.filter(r => r.score >= CONVICTION_SCORE_THRESHOLD);
 
     // Update Cache
     global._alphaHunterCacheV8 = {

@@ -264,7 +264,12 @@ export async function generateOptionSignal(
     // Check if the Discovery Engine has a highly liquid contract that matches our direction
     if (symbol) {
         try {
-            // Find top options but don't force skip cache unless we have to
+            // TODO(perf): `findTopOptions` internally fetches the full options chain again.
+            // This means each call to `generateOptionSignal` can trigger up to 3 separate
+            // options-chain fetches (main chain, targeted expiry chain, and this one).
+            // Fix: Accept an optional pre-fetched chain parameter in findTopOptions and
+            // pass the chain down from the caller to avoid repeat API calls.
+            // The Schwab/Public caches mitigate this in practice, but cold-start is expensive.
             const topCandidates = await findTopOptions(symbol, currentPrice, direction as any, rsi, skipCache);
             if (topCandidates.length > 0) {
                 // Look for a top candidate that matches our direction and has massive volume

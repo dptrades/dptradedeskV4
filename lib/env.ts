@@ -35,12 +35,6 @@ export const env = {
         return Boolean(this.ALPACA_API_KEY && this.ALPACA_API_SECRET);
     },
 
-    // Clerk Authentication
-    CLERK_PUBLISHABLE_KEY: getEnvOrDefault('NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY', null),
-    CLERK_SECRET_KEY: getEnvOrDefault('CLERK_SECRET_KEY', null),
-    get hasClerk() {
-        return Boolean(this.CLERK_PUBLISHABLE_KEY && this.CLERK_SECRET_KEY);
-    },
 
     // Notification Services
     RESEND_API_KEY: getEnvOrDefault('RESEND_API_KEY', null),
@@ -111,8 +105,6 @@ export function validateEnv(): { valid: boolean; missing: string[] } {
     const requiredInProduction = [
         'ALPACA_API_KEY',
         'ALPACA_API_SECRET',
-        'NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY',
-        'CLERK_SECRET_KEY',
         'JWT_SECRET',
         'TRADER_ACCESS_KEY',
         'FINNHUB_API_KEY'
@@ -141,9 +133,9 @@ export function logEnvStatus(): void {
     console.log('[Env] Environment Status:');
     console.log(`  - Mode: ${env.NODE_ENV}`);
     console.log(`  - Alpaca: ${env.hasAlpaca ? '✓' : '✗'}`);
-    console.log(`  - Clerk: ${env.hasClerk ? '✓' : '✗'}`);
     console.log(`  - Email Alerts: ${env.hasEmail ? '✓' : '✗'}`);
     console.log(`  - SMS Alerts: ${env.hasSMS ? '✓' : '✗'}`);
     console.log(`  - Finnhub: ${env.hasFinnhub ? '✓' : '✗'}`);
+    console.log(`  - Schwab: ${env.hasSchwab ? '✓' : '✗'}`);
     console.log(`  - Base URL: ${env.baseUrl}`);
 }

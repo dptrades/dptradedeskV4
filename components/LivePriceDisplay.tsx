@@ -11,6 +11,7 @@ interface LivePriceDisplayProps {
     refreshKey?: number; // Parent-driven refresh trigger (synchronized 60s timer)
     className?: string;
     displayMode?: 'auto' | 'regular' | 'extended'; // Force which price to show
+    showStatusBadge?: boolean; // When true, renders a market session badge alongside the price
 }
 
 interface PriceData {
@@ -24,7 +25,7 @@ interface PriceData {
     source?: string;
 }
 
-export default function LivePriceDisplay({ symbol, fallbackPrice, enabled = true, showChange = false, refreshKey, className, displayMode = 'auto' }: LivePriceDisplayProps) {
+export default function LivePriceDisplay({ symbol, fallbackPrice, enabled = true, showChange = false, refreshKey, className, displayMode = 'auto', showStatusBadge = false }: LivePriceDisplayProps) {
     const [priceData, setPriceData] = useState<PriceData | null>(null);
     const [isLive, setIsLive] = useState(false);
     const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
@@ -208,6 +209,26 @@ export default function LivePriceDisplay({ symbol, fallbackPrice, enabled = true
                     </div>
                 )}
             </div>
+
+            {/* Inline market session badge (when showStatusBadge=true — replaces the second LivePriceDisplay instance) */}
+            {showStatusBadge && (
+                <div className="flex flex-col items-end gap-2 ml-2">
+                    {isLive ? (
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/10 border border-blue-500/20 rounded-lg text-[10px] text-blue-400 font-bold uppercase tracking-wider animate-pulse">
+                            <span className="w-2 h-2 bg-blue-500 rounded-full animate-ping"></span>
+                            Live Feed Active
+                        </div>
+                    ) : isPost ? (
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-500/10 border border-purple-500/20 rounded-lg text-[10px] text-purple-400 font-bold uppercase tracking-wider">
+                            {priceData?.marketSession === 'POST' ? 'After Hours' : 'Pre-Market'}
+                        </div>
+                    ) : (
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-800/80 border border-gray-700/50 rounded-lg text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+                            Market Closed
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 }

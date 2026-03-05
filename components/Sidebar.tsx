@@ -8,8 +8,6 @@ import SidebarInternals from './SidebarInternals';
 import { Search, Activity, Clock, Zap, BarChart2, Hash, Newspaper, TrendingUp, TrendingDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { IndicatorData } from '../types/financial';
 import { PriceStats } from '../lib/stats';
-import OptionsSignal from './OptionsSignal';
-import { generateOptionSignal, OptionRecommendation } from '../lib/options';
 import PreMarketMovers from './PreMarketMovers';
 
 
@@ -120,26 +118,7 @@ export default function Sidebar({
                         : pathname.startsWith('/performance') ? 'performance'
                             : 'dashboard';
 
-    // Calculate Options Signal
-    const latest = data[data.length - 1];
-    const [optionsSignal, setOptionsSignal] = useState<OptionRecommendation | null>(null);
 
-    useEffect(() => {
-        const fetchSignal = async () => {
-            if (latest && stats && latest.atr14) {
-                // Determine Trend (Simplified for Options)
-                let trend: 'bullish' | 'bearish' | 'neutral' = 'neutral';
-                if (latest.close > (latest.ema50 || 0)) trend = 'bullish';
-                else if (latest.close < (latest.ema50 || 0)) trend = 'bearish';
-
-                const sig = await generateOptionSignal(latest.close, latest.atr14, trend, latest.rsi14 || 50, latest.ema50, undefined, symbol);
-                setOptionsSignal(sig);
-            }
-        };
-        if (data.length > 0) {
-            fetchSignal();
-        }
-    }, [latest, stats, symbol, data]);
 
     const enableBetaFeatures = process.env.NEXT_PUBLIC_ENABLE_BETA_FEATURES === 'true';
 

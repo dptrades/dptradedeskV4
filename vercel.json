@@ -12,5 +12,28 @@
       "path": "/api/cron/morning-brief",
       "schedule": "0 14 * * 1-5"
     }
-  ]
+  ],
+  "functions": {
+    "app/api/conviction/route.ts": {
+      "maxDuration": 300
+    },
+    "app/api/alpha-hunter/route.ts": {
+      "maxDuration": 300
+    },
+    "app/api/cron/daily-scan/route.ts": {
+      "maxDuration": 300
+    },
+    "app/api/cron/alpha-hunter-report/route.ts": {
+      "maxDuration": 300
+    },
+    "app/api/cron/morning-brief/route.ts": {
+      "maxDuration": 300
+    },
+    "app/api/options/signal/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/options/discovery/route.ts": {
+      "maxDuration": 60
+    }
+  }
 }

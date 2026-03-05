@@ -92,3 +92,21 @@ export async function getSectorMap(): Promise<Record<string, string>> {
         return SECTOR_MAP;
     }
 }
+
+// ── Conviction Scan Tuning ─────────────────────────────────────────────────
+// Adjust these to control which stocks surface in Top Picks and Alpha Hunter.
+// Increasing CONVICTION_SCORE_THRESHOLD → fewer, higher-conviction picks.
+// Increasing MAX_STOCKS_PER_SECTOR → more sector diversity in results.
+
+/** Minimum composite win-probability score (0–100) for a stock to appear in Top Picks */
+export const CONVICTION_SCORE_THRESHOLD = 75;
+
+/** Maximum stocks allowed per sector in Top Picks (prevents sector concentration) */
+export const MAX_STOCKS_PER_SECTOR = 3;
+
+/** Minimum technical sub-score for Top Picks quality gate */
+export const MIN_TECHNICAL_SCORE = 50;
+
+/** Minimum analyst sub-score for Top Picks quality gate */
+export const MIN_ANALYST_SCORE = 50;
+
